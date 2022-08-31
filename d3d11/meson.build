@@ -6,4 +6,5 @@ args = {
 }
 
 executable('d3d11-compute', files('d3d11_compute.cpp'), kwargs: args)
+executable('d3d11-formats', files('d3d11_formats.cpp'), kwargs: args)
 executable('dxgi-adapters', files('dxgi_adapters.cpp'), kwargs: args)
