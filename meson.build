@@ -62,4 +62,5 @@ exe_ext = ''
 dll_ext = ''
 def_spec_ext = '.def'
 
+subdir('d3d11')
 subdir('shader')
