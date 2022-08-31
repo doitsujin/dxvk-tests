@@ -6,3 +6,4 @@ args = {
 }
 
 executable('d3d9-triangle', files('d3d9_triangle.cpp'), gui_app: true, kwargs: args)
+executable('d3d9-nv12', files('d3d9_nv12.cpp'), gui_app: true, kwargs: args)
