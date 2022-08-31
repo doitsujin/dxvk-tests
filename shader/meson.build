@@ -7,3 +7,4 @@ args = {
 
 executable('hlsl-compiler', files('hlsl_compiler.cpp'), kwargs: args)
 executable('dxbc-disasm', files('dxbc_disasm.cpp'), kwargs: args)
+executable('dxbc-compiler', files('dxbc_compiler.cpp'), kwargs: args)
