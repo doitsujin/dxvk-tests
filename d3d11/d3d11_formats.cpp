@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstring>
+#include <array>
 
 #include <d3dcompiler.h>
 #include <d3d11_4.h>
@@ -182,11 +183,25 @@ int WINAPI WinMain(HINSTANCE hInstance,
                    LPSTR lpCmdLine,
                    int nCmdShow) {
   Com<ID3D11Device> device;
-  
+
+  std::array<D3D_FEATURE_LEVEL, 9> featureLevels = {
+    D3D_FEATURE_LEVEL_12_1,
+    D3D_FEATURE_LEVEL_12_0,
+    D3D_FEATURE_LEVEL_11_1,
+    D3D_FEATURE_LEVEL_11_0,
+    D3D_FEATURE_LEVEL_10_1,
+    D3D_FEATURE_LEVEL_10_0,
+    D3D_FEATURE_LEVEL_9_3,
+    D3D_FEATURE_LEVEL_9_2,
+    D3D_FEATURE_LEVEL_9_1,
+  };
+
+  D3D_FEATURE_LEVEL featureLevel = D3D_FEATURE_LEVEL();
+
   if (FAILED(D3D11CreateDevice(
-        nullptr, D3D_DRIVER_TYPE_HARDWARE,
-        nullptr, 0, nullptr, 0, D3D11_SDK_VERSION,
-        &device, nullptr, nullptr))) {
+        nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0,
+        featureLevels.data(), featureLevels.size(),
+        D3D11_SDK_VERSION, &device, &featureLevel, nullptr))) {
     std::cerr << "Failed to create D3D11 device" << std::endl;
     return 1;
   }
@@ -199,6 +214,9 @@ int WINAPI WinMain(HINSTANCE hInstance,
   D3D11_FEATURE_DATA_D3D11_OPTIONS2               featureD3D11Options2 = { };
   D3D11_FEATURE_DATA_D3D11_OPTIONS3               featureD3D11Options3 = { };
   D3D11_FEATURE_DATA_D3D11_OPTIONS4               featureD3D11Options4 = { };
+  D3D11_FEATURE_DATA_D3D11_OPTIONS5               featureD3D11Options5 = { };
+
+  std::cout << "Feature level: " << (featureLevel >> 12) << "_" << ((featureLevel >> 8) & 0xf) << std::endl;
 
   if (SUCCEEDED(device->CheckFeatureSupport(D3D11_FEATURE_THREADING, &featureThreading, sizeof(featureThreading)))) {
     std::cout << "D3D11_FEATURE_THREADING:" << std::endl
@@ -264,6 +282,11 @@ int WINAPI WinMain(HINSTANCE hInstance,
   if (SUCCEEDED(device->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS4, &featureD3D11Options4, sizeof(featureD3D11Options4)))) {
     std::cout << "D3D11_FEATURE_D3D11_OPTIONS4:" << std::endl
               << "  ExtendedNV12SharedTextureSupported: " << featureD3D11Options4.ExtendedNV12SharedTextureSupported << std::endl;
+  }
+
+  if (SUCCEEDED(device->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS5, &featureD3D11Options5, sizeof(featureD3D11Options5)))) {
+    std::cout << "D3D11_FEATURE_D3D11_OPTIONS5:" << std::endl
+              << "  SharedResourceTier:               " << featureD3D11Options5.SharedResourceTier << std::endl;
   }
 
   for (UINT i  = UINT(DXGI_FORMAT_UNKNOWN);
