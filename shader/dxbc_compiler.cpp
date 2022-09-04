@@ -89,7 +89,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
     return 1;
   }
 
-  size_t size = 0;
+  SIZE_T size = 0;
   extShader->GetSpirvCode(&size, nullptr);
   std::vector<char> spirvCode(size);
   extShader->GetSpirvCode(&size, spirvCode.data());
