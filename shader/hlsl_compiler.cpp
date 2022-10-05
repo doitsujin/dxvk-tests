@@ -100,7 +100,9 @@ int WINAPI WinMain(HINSTANCE hInstance,
     for (uint32_t i = 0; i < size; i++) {
       if (i && !(i & 0x7))
         outputStream << std::endl;
-      outputStream << "0x" << std::setfill('0') << std::setw(8) << data[i] << ", ";
+      else if (i)
+        outputStream << " ";
+      outputStream << "0x" << std::setfill('0') << std::setw(8) << data[i] << ",";
     }
 
     outputStream << std::endl;
