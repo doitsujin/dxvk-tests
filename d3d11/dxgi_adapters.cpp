@@ -1,7 +1,7 @@
 #include <iostream>
 #include <vector>
 
-#include <dxgi.h>
+#include <dxgi1_6.h>
 
 #include <windows.h>
 #include <windowsx.h>
@@ -9,21 +9,18 @@
 #include "../common/com.h"
 #include "../common/str.h"
 
-int WINAPI WinMain(HINSTANCE hInstance,
-                   HINSTANCE hPrevInstance,
-                   LPSTR lpCmdLine,
-                   int nCmdShow) {
-  Com<IDXGIFactory> factory;
+int main(int argc, char **argv) {
+  Com<IDXGIFactory1> factory;
   
-  if (CreateDXGIFactory(__uuidof(IDXGIFactory),
+  if (CreateDXGIFactory1(__uuidof(IDXGIFactory1),
       reinterpret_cast<void**>(&factory)) != S_OK) {
     std::cerr << "Failed to create DXGI factory" << std::endl;
     return 1;
   }
   
-  Com<IDXGIAdapter> adapter;
+  Com<IDXGIAdapter1> adapter;
   
-  for (UINT i = 0; factory->EnumAdapters(i, &adapter) == S_OK; i++) {
+  for (UINT i = 0; factory->EnumAdapters1(i, &adapter) == S_OK; i++) {
     DXGI_ADAPTER_DESC adapterDesc;
     
     if (adapter->GetDesc(&adapterDesc) != S_OK) {
@@ -45,14 +42,17 @@ int WINAPI WinMain(HINSTANCE hInstance,
     std::cout << format(" Dedicated RAM: ", desc.DedicatedVideoMemory) << std::endl;
     std::cout << format(" Shared RAM: ", desc.SharedSystemMemory) << std::endl;
     
-    Com<IDXGIOutput> output;
+    Com<IDXGIOutput> baseOutput;
     
-    for (UINT j = 0; adapter->EnumOutputs(j, &output) == S_OK; j++) {
+    for (UINT j = 0; adapter->EnumOutputs(j, &baseOutput) == S_OK; j++) {
+      Com<IDXGIOutput6> output;
+      baseOutput->QueryInterface(__uuidof(IDXGIOutput6), reinterpret_cast<void**>(&output));
+
       std::vector<DXGI_MODE_DESC> modes;
       
-      DXGI_OUTPUT_DESC desc;
+      DXGI_OUTPUT_DESC1 desc;
       
-      if (output->GetDesc(&desc) != S_OK) {
+      if (output->GetDesc1(&desc) != S_OK) {
         std::cerr << "Failed to get DXGI output info" << std::endl;
         return 1;
       }
@@ -64,6 +64,18 @@ int WINAPI WinMain(HINSTANCE hInstance,
         desc.DesktopCoordinates.top, ":",
         desc.DesktopCoordinates.right - desc.DesktopCoordinates.left, "x",
         desc.DesktopCoordinates.bottom - desc.DesktopCoordinates.top) << std::endl;
+      std::cout << format("  AttachedToDesktop: ", desc.AttachedToDesktop ? "true" : "false") << std::endl;
+      std::cout << format("  Rotation: ", desc.Rotation) << std::endl;
+      std::cout << format("  Monitor: ", desc.Monitor) << std::endl;
+      std::cout << format("  BitsPerColor: ", desc.BitsPerColor) << std::endl;
+      std::cout << format("  ColorSpace: ", desc.ColorSpace) << std::endl;
+      std::cout << format("  RedPrimary: ", desc.RedPrimary[0], " ", desc.RedPrimary[1]) << std::endl;
+      std::cout << format("  GreenPrimary: ", desc.GreenPrimary[0], " ", desc.GreenPrimary[1]) << std::endl;
+      std::cout << format("  BluePrimary: ", desc.BluePrimary[0], " ", desc.BluePrimary[1]) << std::endl;
+      std::cout << format("  WhitePoint: ", desc.WhitePoint[0], " ", desc.WhitePoint[1]) << std::endl;
+      std::cout << format("  MinLuminance: ", desc.MinLuminance) << std::endl;
+      std::cout << format("  MaxLuminance: ", desc.MaxLuminance) << std::endl;
+      std::cout << format("  MaxFullFrameLuminance: ", desc.MaxFullFrameLuminance) << std::endl;
       
       HRESULT status = S_OK;
       UINT    displayModeCount = 0;
