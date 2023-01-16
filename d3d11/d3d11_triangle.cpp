@@ -4,7 +4,7 @@
 
 #include <d3dcompiler.h>
 #include <d3d11_1.h>
-#include <dxgi1_3.h>
+#include <dxgi1_6.h>
 
 #include <windows.h>
 #include <windowsx.h>
@@ -25,19 +25,10 @@ struct VsConstants {
   float w, h;
 };
 
-struct VsConstantsPad {
-  VsConstants data;
-  uint32_t pad[60];
-};
-
 struct PsConstants {
   float r, g, b, a;
-};
-
-struct DrawOptions {
-  bool mapDiscardOnce;
-  bool sortByTexture;
-  bool drawIndexed;
+  uint32_t is_hdr;
+  uint32_t dummy[3];
 };
 
 const std::string g_vertexShaderCode =
@@ -46,17 +37,39 @@ const std::string g_vertexShaderCode =
   "  float2 v_scale;\n"
   "};\n"
   "float4 main(float4 v_pos : IN_POSITION) : SV_POSITION {\n"
-  "  float2 coord = 2.0f * (v_pos * v_scale + v_offset) - 1.0f;\n"
-  "  return float4(coord, 0.0f, 1.0f);\n"
+  "  return float4(v_offset + v_pos * v_scale, 0.0f, 1.0f);\n"
   "}\n";
 
 const std::string g_pixelShaderCode =
   "Texture2D<float4> tex0 : register(t0);"
   "cbuffer ps_cb : register(b0) {\n"
   "  float4 color;\n"
+  "  bool is_hdr;\n"
   "};\n"
+  "float3 encode_hdr(float3 nits) {\n"
+  "const float c1 = 0.8359375f;\n"
+  "const float c2 = 18.8515625f;\n"
+  "const float c3 = 18.6875f;\n"
+  "const float m1 = 0.1593017578125f;\n"
+  "const float m2 = 78.84375f;\n"
+  "float3 y = saturate(nits / 10000.0f);\n"
+  "float3 y_m1 = pow(y, m1.xxx);\n"
+  "float3 num = c1 + c2 * y_m1;\n"
+  "float3 den = 1.0f + c3 * y_m1;\n"
+  "return pow(num / den, m2.xxx);\n"
+  "}\n"
+  "float3 encode_sdr(float3 nits) {\n"
+  "  float3 cvt = nits / 80.0f;\n"
+  "  float3 tonemapped = cvt / (cvt + 1.0f);\n"
+  "  return pow(tonemapped, (1.0f / 2.2f).xxx);\n"
+  "}\n"
   "float4 main() : SV_TARGET {\n"
-  "  return color * tex0.Load(int3(0, 0, 0));\n"
+  "  float4 result = color;\n"
+  "  if (is_hdr)\n"
+  "    result.xyz = encode_hdr(color.xyz);\n"
+  "  else\n"
+  "    result.xyz = encode_sdr(color.xyz);\n"
+  "  return result;\n"
   "}\n";
 
 class TriangleApp {
@@ -106,7 +119,7 @@ public:
     DXGI_SWAP_CHAIN_DESC1 swapDesc;
     swapDesc.Width          = m_windowSizeW;
     swapDesc.Height         = m_windowSizeH;
-    swapDesc.Format         = DXGI_FORMAT_R8G8B8A8_UNORM;
+    swapDesc.Format         = DXGI_FORMAT_R10G10B10A2_UNORM;
     swapDesc.Stereo         = FALSE;
     swapDesc.SampleDesc     = { 1, 0 };
     swapDesc.BufferUsage    = DXGI_USAGE_RENDER_TARGET_OUTPUT;
@@ -124,15 +137,22 @@ public:
     fsDesc.Windowed         = TRUE;
     
     Com<IDXGISwapChain1> swapChain;
+    Com<IDXGISwapChain4> swapChain4;
     if (FAILED(m_factory->CreateSwapChainForHwnd(m_device.ptr(), m_window, &swapDesc, &fsDesc, nullptr, &swapChain))) {
       std::cerr << "Failed to create DXGI swap chain" << std::endl;
       return;
     }
-    
+
     if (FAILED(swapChain->QueryInterface(IID_PPV_ARGS(&m_swapChain)))) {
       std::cerr << "Failed to query DXGI swap chain interface" << std::endl;
       return;
     }
+
+    UINT supportFlags = 0;
+
+    if (SUCCEEDED(m_swapChain->CheckColorSpaceSupport(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020, &supportFlags))
+     && (supportFlags & DXGI_SWAP_CHAIN_COLOR_SPACE_SUPPORT_FLAG_PRESENT))
+      m_isHdr = SUCCEEDED(m_swapChain->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020));
 
     m_factory->MakeWindowAssociation(m_window, 0);
 
@@ -241,47 +261,10 @@ public:
       return;
     }
 
-    cbDesc.ByteWidth            = sizeof(VsConstantsPad) * 128 * 8;
+    cbDesc.ByteWidth            = sizeof(VsConstants);
 
     if (FAILED(m_device->CreateBuffer(&cbDesc, nullptr, &m_cbVs))) {
       std::cerr << "Failed to create constant buffer" << std::endl;
-      return;
-    }
-
-    std::array<uint32_t, 2> colors = { 0xFFFFFFFF, 0xFFC0C0C0 };
-
-    D3D11_SUBRESOURCE_DATA texData;
-    texData.pSysMem             = &colors[0];
-    texData.SysMemPitch         = sizeof(colors[0]);
-    texData.SysMemSlicePitch    = sizeof(colors[0]);
-
-    D3D11_TEXTURE2D_DESC texDesc;
-    texDesc.Width               = 1;
-    texDesc.Height              = 1;
-    texDesc.MipLevels           = 1;
-    texDesc.ArraySize           = 1;
-    texDesc.Format              = DXGI_FORMAT_R8G8B8A8_UNORM;
-    texDesc.SampleDesc          = { 1, 0 };
-    texDesc.Usage               = D3D11_USAGE_IMMUTABLE;
-    texDesc.BindFlags           = D3D11_BIND_SHADER_RESOURCE;
-    texDesc.CPUAccessFlags      = 0;
-    texDesc.MiscFlags           = 0;
-
-    if (FAILED(m_device->CreateTexture2D(&texDesc, &texData, &m_tex0))) {
-      std::cerr << "Failed to create texture" << std::endl;
-      return;
-    }
-
-    texData.pSysMem             = &colors[1];
-
-    if (FAILED(m_device->CreateTexture2D(&texDesc, &texData, &m_tex1))) {
-      std::cerr << "Failed to create texture" << std::endl;
-      return;
-    }
-
-    if (FAILED(m_device->CreateShaderResourceView(m_tex0.ptr(), nullptr, &m_srv0))
-     || FAILED(m_device->CreateShaderResourceView(m_tex1.ptr(), nullptr, &m_srv1))) {
-      std::cerr << "Failed to create SRV" << std::endl;
       return;
     }
 
@@ -304,18 +287,51 @@ public:
     if (!beginFrame())
       return true;
 
-    std::array<PsConstants, 2> colors = {{
-      PsConstants { 0.25f, 0.25f, 0.25f, 1.0f },
-      PsConstants { 0.40f, 0.40f, 0.40f, 1.0f },
-    }};
+    setBrightness(400.0f);
+    drawTriangle(0.0f, 0.0f, 0);
 
-    for (uint32_t i = 0; i < 8; i++) {
-      DrawOptions options;
-      options.sortByTexture = i & 1;
-      options.drawIndexed = i & 2;
-      options.mapDiscardOnce = i & 4;
-      drawLines(colors[i & 1], options, i);
-    }
+    setBrightness(200.0f);
+    drawTriangle(1.0f, 0.0f, 3);
+    drawTriangle(-1.0f, 0.0f, 3);
+    drawTriangle(0.0f, -1.0f, 3);
+
+    setBrightness(100.0f);
+    drawTriangle(-2.0f, 1.0f, 3);
+    drawTriangle(-1.0f, 1.0f, 0);
+    drawTriangle(0.0f, 1.0f, 3);
+    drawTriangle(1.0f, 1.0f, 0);
+    drawTriangle(2.0f, 1.0f, 3);
+
+    setBrightness(80.0f);
+    drawTriangle(-4.0f, 1.0f, 3);
+    drawTriangle(-3.0f, 1.0f, 0);
+    drawTriangle(-3.0f, 0.0f, 3);
+    drawTriangle(-2.0f, 0.0f, 0);
+    drawTriangle(-2.0f, -1.0f, 3);
+    drawTriangle(-1.0f, -1.0f, 0);
+    drawTriangle(-1.0f, -2.0f, 3);
+    drawTriangle(0.0f, -2.0f, 0);
+    drawTriangle(0.0f, -3.0f, 3);
+    drawTriangle(1.0f, -2.0f, 3);
+    drawTriangle(4.0f, 1.0f, 3);
+    drawTriangle(3.0f, 1.0f, 0);
+    drawTriangle(3.0f, 0.0f, 3);
+    drawTriangle(2.0f, 0.0f, 0);
+    drawTriangle(2.0f, -1.0f, 3);
+    drawTriangle(1.0f, -1.0f, 0);
+
+    setBrightness(60.0f);
+    drawTriangle(-5.0f, 2.0f, 3);
+    drawTriangle(-4.0f, 2.0f, 0);
+    drawTriangle(-3.0f, 2.0f, 3);
+    drawTriangle(-2.0f, 2.0f, 0);
+    drawTriangle(-1.0f, 2.0f, 3);
+    drawTriangle(0.0f, 2.0f, 0);
+    drawTriangle(1.0f, 2.0f, 3);
+    drawTriangle(2.0f, 2.0f, 0);
+    drawTriangle(3.0f, 2.0f, 3);
+    drawTriangle(4.0f, 2.0f, 0);
+    drawTriangle(5.0f, 2.0f, 3);
 
     if (!endFrame())
       return false;
@@ -325,93 +341,34 @@ public:
   }
 
 
-  void drawLines(const PsConstants& psData, const DrawOptions& options, uint32_t baseY) {
-    D3D11_MAPPED_SUBRESOURCE sr;
+  void setBrightness(float nits) {
+    PsConstants constants;
+    constants.r = nits;
+    constants.g = nits;
+    constants.b = nits;
+    constants.a = 1.0f;
+    constants.is_hdr = m_isHdr;
 
-    // Update color for the row
-    m_context->PSSetConstantBuffers(0, 1, &m_cbPs);
+    D3D11_MAPPED_SUBRESOURCE sr = { };
     m_context->Map(m_cbPs.ptr(), 0, D3D11_MAP_WRITE_DISCARD, 0, &sr);
-    std::memcpy(sr.pData, &psData, sizeof(psData));
+    memcpy(sr.pData, &constants, sizeof(constants));
     m_context->Unmap(m_cbPs.ptr(), 0);
-
-    baseY *= 8;
-
-    if (options.mapDiscardOnce) {
-      uint32_t drawIndex = 0;
-
-      // Discard and map the entire vertex constant buffer
-      // once, then bind sub-ranges while emitting draw calls
-      m_context->Map(m_cbVs.ptr(), 0, D3D11_MAP_WRITE_DISCARD, 0, &sr);
-      auto vsData = reinterpret_cast<VsConstantsPad*>(sr.pData);
-
-      for (uint32_t y = 0; y < 8; y++) {
-        for (uint32_t x = 0; x < 128; x++)
-          vsData[drawIndex++].data = getVsConstants(x, baseY + y);
-      }
-
-      m_context->Unmap(m_cbVs.ptr(), 0);
-    }
-
-    if (options.drawIndexed)
-      m_context->IASetIndexBuffer(m_ibo.ptr(), DXGI_FORMAT_R32_UINT, 0);
-
-    uint32_t vsStride = sizeof(Vertex);
-    uint32_t vsOffset = 0;
-    m_context->IASetVertexBuffers(0, 1, &m_vbo, &vsStride, &vsOffset);
-
-    uint32_t maxZ = options.sortByTexture ? 2 : 1;
-
-    for (uint32_t z = 0; z < maxZ; z++) {
-      uint32_t drawIndex = z;
-
-      if (options.sortByTexture) {
-        ID3D11ShaderResourceView* view = z ? m_srv1.ptr() : m_srv0.ptr();
-        m_context->PSSetShaderResources(0, 1, &view);
-      }
-
-      for (uint32_t y = 0; y < 8; y++) {
-        for (uint32_t x = z; x < 128; x += maxZ) {
-          uint32_t triIndex = (x ^ y) & 1;
-
-          if (!options.mapDiscardOnce) {
-            D3D11_MAP mapMode = drawIndex ? D3D11_MAP_WRITE_NO_OVERWRITE : D3D11_MAP_WRITE_DISCARD;
-            m_context->Map(m_cbVs.ptr(), 0, mapMode, 0, &sr);
-            auto vsData = reinterpret_cast<VsConstantsPad*>(sr.pData);
-            vsData[drawIndex].data = getVsConstants(x, baseY + y);
-            m_context->Unmap(m_cbVs.ptr(), 0);
-          }
-
-          uint32_t constantOffset = 16 * drawIndex;
-          uint32_t constantCount  = 16;
-          m_context->VSSetConstantBuffers1(0, 1, &m_cbVs, &constantOffset, &constantCount);
-
-          if (!options.sortByTexture) {
-            ID3D11ShaderResourceView* view = triIndex ? m_srv1.ptr() : m_srv0.ptr();
-            m_context->PSSetShaderResources(0, 1, &view);
-          }
-
-          // Submit draw call
-          uint32_t baseIndex = 3 * triIndex;
-
-          if (options.drawIndexed)
-            m_context->DrawIndexed(3, baseIndex, 0);
-          else
-            m_context->Draw(3, baseIndex);
-
-          drawIndex += maxZ;
-        }
-      }
-    }
   }
 
 
-  static VsConstants getVsConstants(uint32_t x, uint32_t y) {
-    VsConstants result;
-    result.x = float(x) / 128.0f;
-    result.y = float(y) / 64.0f;
-    result.w = 1.0f / 128.0f;
-    result.h = 1.0f / 64.0f;
-    return result;
+  void drawTriangle(float x, float y, uint32_t index) {
+    VsConstants constants;
+    constants.x = float(x) / 16.0f;
+    constants.y = float(y) / 9.0f;
+    constants.w = 1.0f / 16.0f;
+    constants.h = 1.0f / 9.0f;
+
+    D3D11_MAPPED_SUBRESOURCE sr = { };
+    m_context->Map(m_cbVs.ptr(), 0, D3D11_MAP_WRITE_DISCARD, 0, &sr);
+    memcpy(sr.pData, &constants, sizeof(constants));
+    m_context->Unmap(m_cbVs.ptr(), 0);
+
+    m_context->DrawIndexedInstanced(3, 1, index, 0, 0);
   }
 
 
@@ -444,7 +401,7 @@ public:
       
       D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
       rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-      rtvDesc.Format        = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+      rtvDesc.Format        = DXGI_FORMAT_R10G10B10A2_UNORM;
       rtvDesc.Texture2D     = { 0u };
       
       if (FAILED(m_device->CreateRenderTargetView(backBuffer.ptr(), &rtvDesc, &m_rtv))) {
@@ -457,9 +414,10 @@ public:
     }
 
     // Set up render state
-    FLOAT color[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
+    FLOAT color_sdr[4] = { 0.61f, 0.61f, 0.61f, 1.0f };
+    FLOAT color_hdr[4] = { 0.42f, 0.42f, 0.42f, 1.0f };
     m_context->OMSetRenderTargets(1, &m_rtv, nullptr);
-    m_context->ClearRenderTargetView(m_rtv.ptr(), color);
+    m_context->ClearRenderTargetView(m_rtv.ptr(), m_isHdr ? color_hdr : color_sdr);
 
     m_context->VSSetShader(m_vs.ptr(), nullptr, 0);
     m_context->PSSetShader(m_ps.ptr(), nullptr, 0);
@@ -475,6 +433,14 @@ public:
     viewport.MinDepth     = 0.0f;
     viewport.MaxDepth     = 1.0f;
     m_context->RSSetViewports(1, &viewport);
+
+    uint32_t vsStride = sizeof(Vertex);
+    uint32_t vsOffset = 0;
+    m_context->IASetVertexBuffers(0, 1, &m_vbo, &vsStride, &vsOffset);
+    m_context->IASetIndexBuffer(m_ibo.ptr(), DXGI_FORMAT_R32_UINT, 0);
+
+    m_context->VSSetConstantBuffers(0, 1, &m_cbVs);
+    m_context->PSSetConstantBuffers(0, 1, &m_cbPs);
     return true;
   }
 
@@ -508,7 +474,7 @@ public:
     double fps = double(m_frameCount) / seconds;
 
     std::wstringstream str;
-    str << L"D3D11 triangle (" << fps << L" FPS)";
+    str << L"D3D11 triangle (" << fps << L" FPS) (" << (m_isHdr ? "HDR" : "SDR") << ")";
 
     SetWindowTextW(m_window, str.str().c_str());
 
@@ -527,23 +493,19 @@ private:
   uint32_t                      m_windowSizeH = 600;
   bool                          m_initialized = false;
   bool                          m_occluded = false;
+  bool                          m_isHdr = false;
   
   Com<IDXGIFactory3>            m_factory;
   Com<IDXGIAdapter>             m_adapter;
   Com<ID3D11Device1>            m_device;
   Com<ID3D11DeviceContext1>     m_context;
-  Com<IDXGISwapChain2>          m_swapChain;
+  Com<IDXGISwapChain4>          m_swapChain;
 
   Com<ID3D11RenderTargetView>   m_rtv;
   Com<ID3D11Buffer>             m_ibo;
   Com<ID3D11Buffer>             m_vbo;
   Com<ID3D11InputLayout>        m_vertexFormat;
 
-  Com<ID3D11Texture2D>          m_tex0;
-  Com<ID3D11Texture2D>          m_tex1;
-  Com<ID3D11ShaderResourceView> m_srv0;
-  Com<ID3D11ShaderResourceView> m_srv1;
-  
   Com<ID3D11Buffer>             m_cbPs;
   Com<ID3D11Buffer>             m_cbVs;
 
