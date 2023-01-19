@@ -1,173 +1,234 @@
 #include <array>
 #include <iostream>
-#include <cstring>
+#include <vector>
 
 #include <d3dcompiler.h>
-#include <d3d11.h>
+#include <d3d11_1.h>
+#include <dxgi1_6.h>
 
 #include <windows.h>
 #include <windowsx.h>
+
+#include <cstring>
+#include <string>
+#include <sstream>
 
 #include "../common/com.h"
 #include "../common/str.h"
 
 const std::string g_computeShaderCode =
-  "StructuredBuffer<uint> buf_in : register(t0);\n"
-  "RWStructuredBuffer<uint> buf_out : register(u0);\n"
-  "groupshared uint tmp[64];\n"
-  "[numthreads(64,1,1)]\n"
-  "void main(uint localId : SV_GroupIndex, uint3 globalId : SV_DispatchThreadID) {\n"
-  "  tmp[localId] = buf_in[2 * globalId.x + 0]\n"
-  "               + buf_in[2 * globalId.x + 1];\n"
-  "  GroupMemoryBarrierWithGroupSync();\n"
-  "  uint activeGroups = 32;\n"
-  "  while (activeGroups != 0) {\n"
-  "    if (localId < activeGroups)\n"
-  "      tmp[localId] += tmp[localId + activeGroups];\n"
-  "    GroupMemoryBarrierWithGroupSync();\n"
-  "    activeGroups >>= 1;\n"
-  "  }\n"
-  "  if (localId == 0)\n"
-  "    buf_out[0] = tmp[0];\n"
+  "RWTexture2D<float4> t_uav : register(u0);\n"
+  "[numthreads(8,8,1)]\n"
+  "void main(uint3 pos : SV_DispatchThreadID) {\n"
+  "  t_uav[pos.xy] = float4(float((pos.x ^ pos.y) & 4).xxx, 1.0f);\n"
   "}\n";
+
+class TriangleApp {
   
-int WINAPI WinMain(HINSTANCE hInstance,
-                   HINSTANCE hPrevInstance,
-                   LPSTR lpCmdLine,
-                   int nCmdShow) {
-  Com<ID3D11Device>         device;
-  Com<ID3D11DeviceContext>  context;
-  Com<ID3D11ComputeShader>  computeShader;
+public:
   
-  Com<ID3D11Buffer> srcBuffer;
-  Com<ID3D11Buffer> dstBuffer;
-  Com<ID3D11Buffer> readBuffer;
-  
-  Com<ID3D11ShaderResourceView> srcView;
-  Com<ID3D11UnorderedAccessView> dstView;
-  
-  if (FAILED(D3D11CreateDevice(
-        nullptr, D3D_DRIVER_TYPE_HARDWARE,
-        nullptr, 0, nullptr, 0, D3D11_SDK_VERSION,
-        &device, nullptr, &context))) {
-    std::cerr << "Failed to create D3D11 device" << std::endl;
-    return 1;
-  }
-  
-  Com<ID3DBlob> computeShaderBlob;
-  
-  if (FAILED(D3DCompile(
-        g_computeShaderCode.data(),
-        g_computeShaderCode.size(),
-        "Compute shader",
-        nullptr, nullptr,
-        "main", "cs_5_0", 0, 0,
-        &computeShaderBlob,
-        nullptr))) {
-    std::cerr << "Failed to compile compute shader" << std::endl;
-    return 1;
-  }
-  
-  if (FAILED(device->CreateComputeShader(
+  TriangleApp(HINSTANCE instance, HWND window)
+  : m_window(window) {
+    HRESULT status = D3D11CreateDevice(
+      nullptr, D3D_DRIVER_TYPE_HARDWARE,
+      nullptr, 0, nullptr, 0, D3D11_SDK_VERSION,
+      &m_device, nullptr, &m_context);
+
+    if (FAILED(status)) {
+      std::cerr << "Failed to create D3D11 device" << std::endl;
+      return;
+    }
+
+    Com<IDXGIDevice> dxgiDevice;
+
+    if (FAILED(m_device->QueryInterface(IID_PPV_ARGS(&dxgiDevice)))) {
+      std::cerr << "Failed to query DXGI device" << std::endl;
+      return;
+    }
+
+    if (FAILED(dxgiDevice->GetAdapter(&m_adapter))) {
+      std::cerr << "Failed to query DXGI adapter" << std::endl;
+      return;
+    }
+
+    if (FAILED(m_adapter->GetParent(IID_PPV_ARGS(&m_factory)))) {
+      std::cerr << "Failed to query DXGI factory" << std::endl;
+      return;
+    }
+
+    DXGI_SWAP_CHAIN_DESC1 swapDesc = { };
+    swapDesc.Width          = m_windowSizeW;
+    swapDesc.Height         = m_windowSizeH;
+    swapDesc.Format         = DXGI_FORMAT_R8G8B8A8_UNORM;
+    swapDesc.Stereo         = FALSE;
+    swapDesc.SampleDesc     = { 1, 0 };
+    swapDesc.BufferUsage    = DXGI_USAGE_UNORDERED_ACCESS;
+    swapDesc.BufferCount    = 3;
+    swapDesc.Scaling        = DXGI_SCALING_STRETCH;
+    swapDesc.SwapEffect     = DXGI_SWAP_EFFECT_DISCARD;
+    swapDesc.AlphaMode      = DXGI_ALPHA_MODE_UNSPECIFIED;
+    swapDesc.Flags          = 0;
+
+    DXGI_SWAP_CHAIN_FULLSCREEN_DESC fsDesc;
+    fsDesc.RefreshRate      = { 0, 0 };
+    fsDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+    fsDesc.Scaling          = DXGI_MODE_SCALING_UNSPECIFIED;
+    fsDesc.Windowed         = TRUE;
+    
+    Com<IDXGISwapChain1> swapChain;
+    Com<IDXGISwapChain4> swapChain4;
+    if (FAILED(m_factory->CreateSwapChainForHwnd(m_device.ptr(), m_window, &swapDesc, &fsDesc, nullptr, &swapChain))) {
+      std::cerr << "Failed to create DXGI swap chain" << std::endl;
+      return;
+    }
+
+    if (FAILED(swapChain->QueryInterface(IID_PPV_ARGS(&m_swapChain)))) {
+      std::cerr << "Failed to query DXGI swap chain interface" << std::endl;
+      return;
+    }
+
+    Com<ID3DBlob> computeShaderBlob;
+    
+    if (FAILED(D3DCompile(g_computeShaderCode.data(), g_computeShaderCode.size(),
+        "Vertex shader", nullptr, nullptr, "main", "cs_5_0", 0, 0, &computeShaderBlob, nullptr))) {
+      std::cerr << "Failed to compile compute shader" << std::endl;
+      return;
+    }
+    if (FAILED(m_device->CreateComputeShader(
         computeShaderBlob->GetBufferPointer(),
         computeShaderBlob->GetBufferSize(),
-        nullptr, &computeShader))) {
-    std::cerr << "Failed to create compute shader" << std::endl;
-    return 1;
+        nullptr, &m_cs))) {
+      std::cerr << "Failed to create compute shader" << std::endl;
+      return;
+    }
   }
   
-  std::array<uint32_t, 128> srcData;
-  for (uint32_t i = 0; i < srcData.size(); i++)
-    srcData[i] = i + 1;
   
-  D3D11_BUFFER_DESC srcBufferDesc;
-  srcBufferDesc.ByteWidth            = sizeof(uint32_t) * srcData.size();
-  srcBufferDesc.Usage                = D3D11_USAGE_IMMUTABLE;
-  srcBufferDesc.BindFlags            = D3D11_BIND_SHADER_RESOURCE;
-  srcBufferDesc.CPUAccessFlags       = 0;
-  srcBufferDesc.MiscFlags            = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-  srcBufferDesc.StructureByteStride  = sizeof(uint32_t);
-  
-  D3D11_SUBRESOURCE_DATA srcDataInfo;
-  srcDataInfo.pSysMem          = srcData.data();
-  srcDataInfo.SysMemPitch      = 0;
-  srcDataInfo.SysMemSlicePitch = 0;
-  
-  if (FAILED(device->CreateBuffer(&srcBufferDesc, &srcDataInfo, &srcBuffer))) {
-    std::cerr << "Failed to create source buffer" << std::endl;
-    return 1;
+  ~TriangleApp() {
+    m_context->ClearState();
   }
   
-  D3D11_BUFFER_DESC dstBufferDesc;
-  dstBufferDesc.ByteWidth            = sizeof(uint32_t);
-  dstBufferDesc.Usage                = D3D11_USAGE_DEFAULT;
-  dstBufferDesc.BindFlags            = D3D11_BIND_UNORDERED_ACCESS;
-  dstBufferDesc.CPUAccessFlags       = 0;
-  dstBufferDesc.MiscFlags            = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-  dstBufferDesc.StructureByteStride  = sizeof(uint32_t);
   
-  if (FAILED(device->CreateBuffer(&dstBufferDesc, &srcDataInfo, &dstBuffer))) {
-    std::cerr << "Failed to create destination buffer" << std::endl;
-    return 1;
+  bool run() {
+    if (!beginFrame())
+      return false;
+
+    m_context->CSSetShader(m_cs.ptr(), nullptr, 0);
+    m_context->CSSetUnorderedAccessViews(0, 1, &m_uav, nullptr);
+    m_context->Dispatch((m_windowSizeW + 7) / 8, (m_windowSizeH + 7) / 8, 1);
+
+    return SUCCEEDED(m_swapChain->Present(0, 0));
   }
-  
-  D3D11_BUFFER_DESC readBufferDesc;
-  readBufferDesc.ByteWidth            = sizeof(uint32_t);
-  readBufferDesc.Usage                = D3D11_USAGE_STAGING;
-  readBufferDesc.BindFlags            = 0;
-  readBufferDesc.CPUAccessFlags       = D3D11_CPU_ACCESS_READ;
-  readBufferDesc.MiscFlags            = 0;
-  readBufferDesc.StructureByteStride  = 0;
-  
-  if (FAILED(device->CreateBuffer(&readBufferDesc, nullptr, &readBuffer))) {
-    std::cerr << "Failed to create readback buffer" << std::endl;
-    return 1;
+
+
+  bool beginFrame() {
+    // Make sure we can actually render to the window
+    RECT windowRect = { 0, 0, 1024, 600 };
+    GetClientRect(m_window, &windowRect);
+    
+    uint32_t newWindowSizeW = uint32_t(windowRect.right - windowRect.left);
+    uint32_t newWindowSizeH = uint32_t(windowRect.bottom - windowRect.top);
+    
+    if (m_windowSizeW != newWindowSizeW || m_windowSizeH != newWindowSizeH || m_uav == nullptr) {
+      m_uav = nullptr;
+      m_context->ClearState();
+
+      DXGI_SWAP_CHAIN_DESC desc;
+      m_swapChain->GetDesc(&desc);
+
+      if (FAILED(m_swapChain->ResizeBuffers(desc.BufferCount,
+          newWindowSizeW, newWindowSizeH, DXGI_FORMAT_R8G8B8A8_UNORM, desc.Flags))) {
+        std::cerr << "Failed to resize back buffers" << std::endl;
+        return false;
+      }
+      
+      Com<ID3D11Texture2D> backBuffer;
+      if (FAILED(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer)))) {
+        std::cerr << "Failed to get swap chain back buffer" << std::endl;
+        return false;
+      }
+      
+      D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
+      uavDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
+      uavDesc.Format        = DXGI_FORMAT_R8G8B8A8_UNORM;
+      uavDesc.Texture2D     = { 0u };
+      
+      if (FAILED(m_device->CreateUnorderedAccessView(backBuffer.ptr(), &uavDesc, &m_uav))) {
+        std::cerr << "Failed to create unordered access view" << std::endl;
+        return false;
+      }
+
+      m_windowSizeW = newWindowSizeW;
+      m_windowSizeH = newWindowSizeH;
+    }
+
+    return true;
   }
+
+private:
   
-  D3D11_SHADER_RESOURCE_VIEW_DESC srcViewDesc;
-  srcViewDesc.Format                = DXGI_FORMAT_UNKNOWN;
-  srcViewDesc.ViewDimension         = D3D11_SRV_DIMENSION_BUFFEREX;
-  srcViewDesc.BufferEx.FirstElement = 0;
-  srcViewDesc.BufferEx.NumElements  = srcData.size();
-  srcViewDesc.BufferEx.Flags        = 0;
+  HWND                          m_window;
+  uint32_t                      m_windowSizeW = 1024;
+  uint32_t                      m_windowSizeH = 600;
   
-  if (FAILED(device->CreateShaderResourceView(srcBuffer.ptr(), &srcViewDesc, &srcView))) {
-    std::cerr << "Failed to create shader resource view" << std::endl;
-    return 1;
+  Com<IDXGIFactory3>            m_factory;
+  Com<IDXGIAdapter>             m_adapter;
+  Com<ID3D11Device>             m_device;
+  Com<ID3D11DeviceContext>      m_context;
+  Com<IDXGISwapChain>           m_swapChain;
+
+  Com<ID3D11UnorderedAccessView> m_uav;
+  Com<ID3D11ComputeShader>      m_cs;
+
+};
+
+LRESULT CALLBACK WindowProc(HWND hWnd,
+                            UINT message,
+                            WPARAM wParam,
+                            LPARAM lParam);
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+  WNDCLASSEXW wc = { };
+  wc.cbSize = sizeof(wc);
+  wc.style = CS_HREDRAW | CS_VREDRAW;
+  wc.lpfnWndProc = WindowProc;
+  wc.hInstance = hInstance;
+  wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+  wc.hbrBackground = HBRUSH(COLOR_WINDOW);
+  wc.lpszClassName = L"WindowClass";
+  RegisterClassExW(&wc);
+
+  HWND hWnd = CreateWindowExW(0, L"WindowClass", L"D3D11 compute",
+    WS_OVERLAPPEDWINDOW, 300, 300, 1024, 600,
+    nullptr, nullptr, hInstance, nullptr);
+  ShowWindow(hWnd, nCmdShow);
+
+  TriangleApp app(hInstance, hWnd);
+
+  MSG msg;
+
+  while (true) {
+    if (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+      TranslateMessage(&msg);
+      DispatchMessageW(&msg);
+      
+      if (msg.message == WM_QUIT)
+        return msg.wParam;
+    } else {
+      if (!app.run())
+        break;
+    }
   }
-  
-  D3D11_UNORDERED_ACCESS_VIEW_DESC dstViewDesc;
-  dstViewDesc.Format                = DXGI_FORMAT_UNKNOWN;
-  dstViewDesc.ViewDimension         = D3D11_UAV_DIMENSION_BUFFER;
-  dstViewDesc.Buffer.FirstElement   = 0;
-  dstViewDesc.Buffer.NumElements    = 1;
-  dstViewDesc.Buffer.Flags          = 0;
-  
-  if (FAILED(device->CreateUnorderedAccessView(dstBuffer.ptr(), &dstViewDesc, &dstView))) {
-    std::cerr << "Failed to create unordered access view" << std::endl;
-    return 1;
+
+  return msg.wParam;
+}
+
+LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+  switch (message) {
+    case WM_CLOSE:
+      PostQuitMessage(0);
+      return 0;
   }
-  
-  // Compute sum of the source buffer values
-  context->CSSetShader(computeShader.ptr(), nullptr, 0);
-  context->CSSetShaderResources(0, 1, &srcView);
-  context->CSSetUnorderedAccessViews(0, 1, &dstView, nullptr);
-  context->Dispatch(1, 1, 1);
-  
-  // Write data to the readback buffer and query the result
-  context->CopyResource(readBuffer.ptr(), dstBuffer.ptr());
-  
-  D3D11_MAPPED_SUBRESOURCE mappedResource;
-  if (FAILED(context->Map(readBuffer.ptr(), 0, D3D11_MAP_READ, 0, &mappedResource))) {
-    std::cerr << "Failed to map readback buffer" << std::endl;
-    return 1;
-  }
-  
-  uint32_t result = 0;
-  std::memcpy(&result, mappedResource.pData, sizeof(result));
-  context->Unmap(readBuffer.ptr(), 0);
-  
-  std::cout << "Sum of the numbers 1 to " << srcData.size() << " = " << result << std::endl;
-  context->ClearState();
-  return 0;
+
+  return DefWindowProcW(hWnd, message, wParam, lParam);
 }
