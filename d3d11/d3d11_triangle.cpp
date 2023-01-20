@@ -379,9 +379,8 @@ public:
     
     uint32_t newWindowSizeW = uint32_t(windowRect.right - windowRect.left);
     uint32_t newWindowSizeH = uint32_t(windowRect.bottom - windowRect.top);
-    
+
     if (m_windowSizeW != newWindowSizeW || m_windowSizeH != newWindowSizeH) {
-      m_rtv = nullptr;
       m_context->ClearState();
 
       DXGI_SWAP_CHAIN_DESC1 desc;
@@ -392,32 +391,34 @@ public:
         std::cerr << "Failed to resize back buffers" << std::endl;
         return false;
       }
-      
-      Com<ID3D11Texture2D> backBuffer;
-      if (FAILED(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer)))) {
-        std::cerr << "Failed to get swap chain back buffer" << std::endl;
-        return false;
-      }
-      
-      D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
-      rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-      rtvDesc.Format        = DXGI_FORMAT_R10G10B10A2_UNORM;
-      rtvDesc.Texture2D     = { 0u };
-      
-      if (FAILED(m_device->CreateRenderTargetView(backBuffer.ptr(), &rtvDesc, &m_rtv))) {
-        std::cerr << "Failed to create render target view" << std::endl;
-        return false;
-      }
 
       m_windowSizeW = newWindowSizeW;
       m_windowSizeH = newWindowSizeH;
+    }
+      
+    Com<ID3D11Texture2D> backBuffer;
+    Com<ID3D11RenderTargetView> rtv;
+
+    if (FAILED(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer)))) {
+      std::cerr << "Failed to get swap chain back buffer" << std::endl;
+      return false;
+    }
+    
+    D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
+    rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+    rtvDesc.Format        = DXGI_FORMAT_R10G10B10A2_UNORM;
+    rtvDesc.Texture2D     = { 0u };
+
+    if (FAILED(m_device->CreateRenderTargetView(backBuffer.ptr(), &rtvDesc, &rtv))) {
+      std::cerr << "Failed to create render target view" << std::endl;
+      return false;
     }
 
     // Set up render state
     FLOAT color_sdr[4] = { 0.61f, 0.61f, 0.61f, 1.0f };
     FLOAT color_hdr[4] = { 0.42f, 0.42f, 0.42f, 1.0f };
-    m_context->OMSetRenderTargets(1, &m_rtv, nullptr);
-    m_context->ClearRenderTargetView(m_rtv.ptr(), m_isHdr ? color_hdr : color_sdr);
+    m_context->OMSetRenderTargets(1, &rtv, nullptr);
+    m_context->ClearRenderTargetView(rtv.ptr(), m_isHdr ? color_hdr : color_sdr);
 
     m_context->VSSetShader(m_vs.ptr(), nullptr, 0);
     m_context->PSSetShader(m_ps.ptr(), nullptr, 0);
@@ -501,7 +502,6 @@ private:
   Com<ID3D11DeviceContext1>     m_context;
   Com<IDXGISwapChain4>          m_swapChain;
 
-  Com<ID3D11RenderTargetView>   m_rtv;
   Com<ID3D11Buffer>             m_ibo;
   Com<ID3D11Buffer>             m_vbo;
   Com<ID3D11InputLayout>        m_vertexFormat;
