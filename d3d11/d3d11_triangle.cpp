@@ -281,8 +281,13 @@ public:
     if (!m_initialized)
       return false;
 
-    if (m_occluded && (m_occluded = isOccluded()))
-      return true;
+    if (m_occluded) {
+      HRESULT hr = m_swapChain->Present(0, DXGI_PRESENT_TEST);
+      m_occluded = hr == DXGI_STATUS_OCCLUDED;
+
+      if (m_occluded)
+        return true;
+    }
 
     if (!beginFrame())
       return true;
@@ -447,11 +452,7 @@ public:
 
 
   bool endFrame() {
-    HRESULT hr = m_swapChain->Present(0, DXGI_PRESENT_TEST);
-
-    if (hr == S_OK)
-      hr = m_swapChain->Present(0, 0);
-
+    HRESULT hr = m_swapChain->Present(1, 0);
     m_occluded = hr == DXGI_STATUS_OCCLUDED;
     return true;
   }
@@ -481,10 +482,6 @@ public:
 
     m_qpcLastUpdate = now;
     m_frameCount = 0;
-  }
-
-  bool isOccluded() {
-    return m_swapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED;
   }
 
 private:

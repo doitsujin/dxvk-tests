@@ -20,7 +20,7 @@ const std::string g_computeShaderCode =
   "RWTexture2D<float4> t_uav : register(u0);\n"
   "[numthreads(8,8,1)]\n"
   "void main(uint3 pos : SV_DispatchThreadID) {\n"
-  "  t_uav[pos.xy] = float4(float((pos.x ^ pos.y) & 4).xxx, 1.0f);\n"
+  "  t_uav[pos.xy] = float4(float(((pos.x ^ pos.y) & 4) >> 2).xxx, 1.0f) * 0.2f + 0.4f;\n"
   "}\n";
 
 class TriangleApp {
@@ -117,7 +117,7 @@ public:
     m_context->CSSetUnorderedAccessViews(0, 1, &m_uav, nullptr);
     m_context->Dispatch((m_windowSizeW + 7) / 8, (m_windowSizeH + 7) / 8, 1);
 
-    return SUCCEEDED(m_swapChain->Present(0, 0));
+    return SUCCEEDED(m_swapChain->Present(1, 0));
   }
 
 
