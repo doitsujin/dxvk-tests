@@ -124,7 +124,7 @@ public:
     swapDesc.SampleDesc     = { 1, 0 };
     swapDesc.BufferUsage    = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     swapDesc.BufferCount    = 3;
-    swapDesc.Scaling        = DXGI_SCALING_STRETCH;
+    swapDesc.Scaling        = DXGI_SCALING_NONE;
     swapDesc.SwapEffect     = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     swapDesc.AlphaMode      = DXGI_ALPHA_MODE_UNSPECIFIED;
     swapDesc.Flags          = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT
