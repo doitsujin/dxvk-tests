@@ -47,6 +47,7 @@ endif
 
 lib_d3d9    = cpp.find_library('d3d9')
 lib_d3d11   = cpp.find_library('d3d11')
+lib_d3d12   = cpp.find_library('d3d12')
 lib_dxgi    = cpp.find_library('dxgi')
 
 if dxvk_is_msvc
