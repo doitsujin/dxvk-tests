@@ -2,8 +2,6 @@
 #include <cstring>
 #include <iostream>
 #include <vector>
-#include <io.h>
-#include <Fcntl.h>
 
 
 #define D3D_DEBUG_INFO
@@ -177,7 +175,6 @@ public:
       D3DLOCKED_RECT lockedRect = {};
       m_frontBufferData->LockRect(&lockedRect, nullptr, 0);
       D3DCOLOR* data = reinterpret_cast<D3DCOLOR*>(lockedRect.pBits);
-      D3DCOLOR pixel = *data;
       m_frontBufferData->UnlockRect();
 
       // UpdateSurface requires the same format, GetFrontBufferData requires XRGB and thats not supported as a backbuffer format
