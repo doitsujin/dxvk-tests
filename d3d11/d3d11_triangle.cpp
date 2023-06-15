@@ -148,6 +148,13 @@ public:
       return;
     }
 
+    m_latencyEvent = m_swapChain->GetFrameLatencyWaitableObject();
+
+    if (!m_latencyEvent) {
+      std::cerr << "Failed to query DXGI frame latency event" << std::endl;
+      return;
+    }
+
     UINT supportFlags = 0;
 
     if (SUCCEEDED(m_swapChain->CheckColorSpaceSupport(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020, &supportFlags))
@@ -378,6 +385,8 @@ public:
 
 
   bool beginFrame() {
+    WaitForSingleObject(m_latencyEvent, INFINITE);
+
     // Make sure we can actually render to the window
     RECT windowRect = { 0, 0, 1024, 600 };
     GetClientRect(m_window, &windowRect);
@@ -511,6 +520,8 @@ private:
 
   LARGE_INTEGER                 m_qpcLastUpdate = { };
   LARGE_INTEGER                 m_qpcFrequency  = { };
+
+  HANDLE                        m_latencyEvent = nullptr;
 
   uint32_t                      m_frameCount = 0;
   
