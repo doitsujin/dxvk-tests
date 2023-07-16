@@ -22,10 +22,7 @@ struct __declspec(uuid("bb8a4fb9-3935-4762-b44b-35189a26414a")) ID3D11VkExtShade
 __CRT_UUID_DECL(ID3D11VkExtShader, 0xbb8a4fb9,0x3935,0x4762,0xb4,0x4b,0x35,0x18,0x9a,0x26,0x41,0x4a);
 #endif
 
-int WINAPI WinMain(HINSTANCE hInstance,
-                   HINSTANCE hPrevInstance,
-                   LPSTR lpCmdLine,
-                   int nCmdShow) {
+int main(int, char**) {
   int     argc = 0;
   LPWSTR* argv = CommandLineToArgvW(
     GetCommandLineW(), &argc);  
