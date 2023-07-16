@@ -14,10 +14,7 @@
 #include "../common/com.h"
 #include "../common/str.h"
 
-int WINAPI WinMain(HINSTANCE hInstance,
-                   HINSTANCE hPrevInstance,
-                   LPSTR lpCmdLine,
-                   int nCmdShow) {
+int main(int, char**) {
   int     argc = 0;
   LPWSTR* argv = CommandLineToArgvW(
     GetCommandLineW(), &argc);  

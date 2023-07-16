@@ -630,10 +630,7 @@ private:
 
 };
 
-int WINAPI WinMain(HINSTANCE hInstance,
-                   HINSTANCE hPrevInstance,
-                   LPSTR lpCmdLine,
-                   int nCmdShow) {
+int main(int, char**) {
   TiledResourceTestApp app;
   return app.run();
 }
