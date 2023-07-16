@@ -63,6 +63,9 @@ exe_ext = ''
 dll_ext = ''
 def_spec_ext = '.def'
 
+if cpu_family == 'x86' and cpp.has_header('d3d8.h', include_directories: include_directories('.', 'd3d8'))
+  subdir('d3d8')
+endif
 subdir('d3d9')
 subdir('d3d11')
 subdir('shader')
