@@ -1,6 +1,7 @@
 #include <cstring>
 #include <iostream>
 #include <functional>
+#include <array>
 
 #include <dxgi1_6.h>
 #include <d3d11on12.h>

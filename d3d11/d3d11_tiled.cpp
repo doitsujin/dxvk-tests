@@ -1,6 +1,7 @@
 #include <cstring>
 #include <iostream>
 #include <functional>
+#include <array>
 
 #include <d3dcompiler.h>
 #include <d3d11_2.h>
