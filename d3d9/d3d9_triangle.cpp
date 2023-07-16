@@ -254,7 +254,8 @@ public:
     status = m_device->CreateTexture(64, 64, 1, 0, D3DFMT_DXT3, D3DPOOL_SYSTEMMEM, &sysmemTexture, nullptr);
 
     Com<IDirect3DSurface9> offscreenSurface;
-    status = m_device->CreateOffscreenPlainSurfaceEx(64, 64, D3DFMT_DXT3, D3DPOOL_DEFAULT, &offscreenSurface, nullptr, 0);
+    //status = m_device->CreateOffscreenPlainSurfaceEx(64, 64, D3DFMT_DXT3, D3DPOOL_DEFAULT, &offscreenSurface, nullptr, 0);
+    status = m_device->CreateOffscreenPlainSurfaceEx(64, 64, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &offscreenSurface, nullptr, 0);
 
     D3DLOCKED_RECT offscreenLock;
     status = offscreenSurface->LockRect(&offscreenLock, nullptr, 0);
