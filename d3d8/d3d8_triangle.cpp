@@ -759,8 +759,7 @@ LRESULT WINAPI WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
-INT WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, 
-                   LPSTR lpCmdLine, INT nCmdShow) {
+int main(int, char**) {
     WNDCLASSEX wc = {sizeof(WNDCLASSEX), CS_CLASSDC, WindowProc, 0L, 0L,
                      GetModuleHandle(NULL), NULL, NULL, NULL, NULL,
                      "D3D8_Triangle", NULL};
