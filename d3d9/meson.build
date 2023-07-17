@@ -5,7 +5,7 @@ args = {
   'install': true
 }
 
-executable('d3d9-triangle', files('d3d9_triangle.cpp'), gui_app: true, kwargs: args)
-executable('d3d9-present', files('d3d9_present.cpp'), gui_app: true, kwargs: args)
-executable('d3d9-nv12', files('d3d9_nv12.cpp'), gui_app: true, kwargs: args)
-executable('d3d9-module-refs', files('d3d9_module_refs.cpp'), gui_app: false)
+executable('d3d9-triangle', files('d3d9_triangle.cpp'), kwargs: args)
+executable('d3d9-present', files('d3d9_present.cpp'), kwargs: args)
+executable('d3d9-nv12', files('d3d9_nv12.cpp'), kwargs: args)
+executable('d3d9-module-refs', files('d3d9_module_refs.cpp'))

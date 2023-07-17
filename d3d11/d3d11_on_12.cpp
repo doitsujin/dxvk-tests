@@ -541,10 +541,9 @@ private:
 
 };
 
-int WINAPI WinMain(HINSTANCE hInstance,
-                   HINSTANCE hPrevInstance,
-                   LPSTR lpCmdLine,
-                   int nCmdShow) {
+int main(int argc, char** argv) {
+  HINSTANCE hInstance = GetModuleHandle(nullptr);
+  int nCmdShow = SW_SHOWDEFAULT;
   D3D11On12App app(hInstance, nCmdShow);
   return app.run();
 }
