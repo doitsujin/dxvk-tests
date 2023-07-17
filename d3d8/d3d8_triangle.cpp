@@ -761,7 +761,7 @@ LRESULT WINAPI WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 int main(int, char**) {
     WNDCLASSEX wc = {sizeof(WNDCLASSEX), CS_CLASSDC, WindowProc, 0L, 0L,
-                     GetModuleHandle(NULL), NULL, NULL, NULL, NULL,
+                     GetModuleHandle(NULL), NULL, LoadCursor(nullptr, IDC_ARROW), NULL, NULL,
                      "D3D8_Triangle", NULL};
     RegisterClassEx(&wc);
 
