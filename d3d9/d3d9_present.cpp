@@ -174,7 +174,6 @@ public:
 
       D3DLOCKED_RECT lockedRect = {};
       m_frontBufferData->LockRect(&lockedRect, nullptr, 0);
-      D3DCOLOR* data = reinterpret_cast<D3DCOLOR*>(lockedRect.pBits);
       m_frontBufferData->UnlockRect();
 
       // UpdateSurface requires the same format, GetFrontBufferData requires XRGB and thats not supported as a backbuffer format
