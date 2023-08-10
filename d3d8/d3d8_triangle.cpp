@@ -210,7 +210,7 @@ class RGBTriangle {
             std::cout << format("  ~ MaxSimultaneousTextures: ", caps8.MaxSimultaneousTextures) << std::endl;
             // may vary between interface and device modes (SWVP or HWVP)
             std::cout << format("  ~ MaxActiveLights: ", caps8.MaxActiveLights, " (I), ", caps8SWVP.MaxActiveLights,
-                                " (SWVP), ", caps8SWVP.MaxActiveLights, " (HWVP)") << std::endl;
+                                " (SWVP), ", caps8HWVP.MaxActiveLights, " (HWVP)") << std::endl;
             // may vary between interface and device modes (SWVP or HWVP)
             std::cout << format("  ~ MaxUserClipPlanes: ", caps8.MaxUserClipPlanes, " (I), ", caps8SWVP.MaxUserClipPlanes,
                                 " (SWVP), ", caps8HWVP.MaxUserClipPlanes, " (HWVP)") << std::endl;
