@@ -537,6 +537,56 @@ class RGBTriangle {
             }
         }
 
+        // Various surface format tests
+        void testSurfaceFormats() {
+            resetOrRecreateDevice();
+
+            std::map<D3DFORMAT, char const*> sfFormats = { {D3DFMT_R8G8B8, "D3DFMT_R8G8B8"}, 
+                                                           {D3DFMT_R3G3B2, "D3DFMT_R3G3B2"}, 
+                                                           {D3DFMT_A8R3G3B2, "D3DFMT_A8R3G3B2"}, 
+                                                           {D3DFMT_A8P8, "D3DFMT_A8P8"}, 
+                                                           {D3DFMT_P8, "D3DFMT_P8"},
+                                                           {D3DFMT_L6V5U5, "D3DFMT_L6V5U5"}, 
+                                                           {D3DFMT_X8L8V8U8, "D3DFMT_X8L8V8U8"},
+                                                           {D3DFMT_A2W10V10U10, "D3DFMT_A2W10V10U10"} };
+
+            std::map<D3DFORMAT, char const*>::iterator sfFormatIter;
+
+            Com<IDirect3DSurface8> surface;
+            Com<IDirect3DTexture8> texture;
+
+            // Note: CreateImageSurface calls should never fail, even with unsupported surface formats
+            std::cout << "Running surface format tests:" << std::endl;
+
+            for (sfFormatIter = sfFormats.begin(); sfFormatIter != sfFormats.end(); sfFormatIter++) {
+                D3DFORMAT surfaceFormat = sfFormatIter->first;
+
+                m_totalTests++;
+                // D3DFMT_R8G8B8 is used in Hidden & Dangerous Deluxe;
+                // D3DFMT_P8 (8-bit palleted textures) are required by some early d3d8 games
+                HRESULT status = m_device->CreateImageSurface(256, 256, surfaceFormat, &surface);
+
+                if (FAILED(status)) {
+                    std::cout << format("  - The CreateImageSurface with ", sfFormatIter->second, " test has failed") << std::endl;
+                } else {
+                    m_passedTests++;
+                    std::cout << format("  + The CreateImageSurface with ", sfFormatIter->second, " test has passed") << std::endl;
+                }
+
+                // D3DFMT_L6V5U5 is used in Star Wars: Republic Commando for bump mapping;
+                // LotR: Fellowship of the Ring atempts to create a D3DFMT_P8 texture directly
+                status = m_device->CreateTexture(256, 256, 1, 0, surfaceFormat, D3DPOOL_DEFAULT, &texture);
+
+                if (FAILED(status)) {
+                    std::cout << format("  ~ The ", sfFormatIter->second, " format is not supported by CreateTexture") << std::endl;
+                } else {
+                    m_totalTests++;
+                    m_passedTests++;
+                    std::cout << format("  + The CreateTexture with ", sfFormatIter->second, " test has passed") << std::endl;
+                }
+            }
+        }
+
         // Depth Stencil format tests
         void testDepthStencilFormats() {
             resetOrRecreateDevice();
@@ -790,6 +840,7 @@ int main(int, char**) {
         rgbTriangle.testPureDeviceSetSWVPRenderState();
         rgbTriangle.testDefaultPoolAllocationReset();
         rgbTriangle.testDeviceCapabilities();
+        rgbTriangle.testSurfaceFormats();
         rgbTriangle.testDepthStencilFormats();
         rgbTriangle.testBackBufferFormats(FALSE);
         rgbTriangle.testBackBufferFormats(TRUE);
