@@ -472,6 +472,27 @@ class RGBTriangle {
             }
         }
 
+        // CreateStateBlock & Reset test
+        void testCreateStateBlockAndReset() {
+            resetOrRecreateDevice();
+
+            // create a temporary state block
+            DWORD stateBlockToken;
+            m_device->CreateStateBlock(D3DSBT_ALL, &stateBlockToken);
+
+            m_totalTests++;
+            // D3D8 state blocks survive device Reset() calls and shouldn't be counted as losable resources
+            HRESULT status = m_device->Reset(&m_pp);
+            if (FAILED(status)) {
+                std::cout << "  - The CreateStateBlock & Reset test has failed" << std::endl;
+            } else {
+                m_passedTests++;
+                std::cout << "  + The CreateStateBlock & Reset test has passed" << std::endl;
+            }
+
+            m_device->DeleteStateBlock(stateBlockToken);
+        }
+
         // D3D Device capabilities tests
         void testDeviceCapabilities() {
             createDeviceWithFlags(&m_pp, D3DCREATE_SOFTWARE_VERTEXPROCESSING, true);
@@ -839,6 +860,7 @@ int main(int, char**) {
         rgbTriangle.testBeginSceneReset();
         rgbTriangle.testPureDeviceSetSWVPRenderState();
         rgbTriangle.testDefaultPoolAllocationReset();
+        rgbTriangle.testCreateStateBlockAndReset();
         rgbTriangle.testDeviceCapabilities();
         rgbTriangle.testSurfaceFormats();
         rgbTriangle.testDepthStencilFormats();
