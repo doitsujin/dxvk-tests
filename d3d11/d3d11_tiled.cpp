@@ -1,6 +1,7 @@
 #include <cstring>
 #include <iostream>
 #include <functional>
+#include <array>
 
 #include <d3dcompiler.h>
 #include <d3d11_2.h>
@@ -629,10 +630,7 @@ private:
 
 };
 
-int WINAPI WinMain(HINSTANCE hInstance,
-                   HINSTANCE hPrevInstance,
-                   LPSTR lpCmdLine,
-                   int nCmdShow) {
+int main(int, char**) {
   TiledResourceTestApp app;
   return app.run();
 }

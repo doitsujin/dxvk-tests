@@ -194,10 +194,7 @@ std::string GetFormatFlagName2(UINT Flag) {
 }
 
 
-int WINAPI WinMain(HINSTANCE hInstance,
-                   HINSTANCE hPrevInstance,
-                   LPSTR lpCmdLine,
-                   int nCmdShow) {
+int main(int, char**) {
   Com<ID3D11Device> device;
 
   std::array<D3D_FEATURE_LEVEL, 9> featureLevels = {

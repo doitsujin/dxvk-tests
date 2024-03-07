@@ -174,7 +174,6 @@ public:
 
       D3DLOCKED_RECT lockedRect = {};
       m_frontBufferData->LockRect(&lockedRect, nullptr, 0);
-      D3DCOLOR* data = reinterpret_cast<D3DCOLOR*>(lockedRect.pBits);
       m_frontBufferData->UnlockRect();
 
       // UpdateSurface requires the same format, GetFrontBufferData requires XRGB and thats not supported as a backbuffer format
@@ -298,11 +297,9 @@ LRESULT CALLBACK WindowProc(HWND hWnd,
                             WPARAM wParam,
                             LPARAM lParam);
 
-int WINAPI WinMain(HINSTANCE hInstance,
-                   HINSTANCE hPrevInstance,
-                   LPSTR lpCmdLine,
-                   int nCmdShow) {
-
+int main(int argc, char** argv) {
+  HINSTANCE hInstance = GetModuleHandle(nullptr);
+  int nCmdShow = SW_SHOWDEFAULT;
   HWND hWnd;
   WNDCLASSEXW wc;
   ZeroMemory(&wc, sizeof(WNDCLASSEX));
@@ -356,5 +353,5 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
       return 0;
   }
 
-  return DefWindowProc(hWnd, message, wParam, lParam);
+  return DefWindowProcW(hWnd, message, wParam, lParam);
 }

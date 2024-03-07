@@ -119,15 +119,13 @@ int main(int argc, char** argv) {
     hInstance,
     nullptr);
   ShowWindow(hWnd, 0);
-
-  MSG msg;
   
   try {
     TriangleApp app(hInstance, hWnd);
     return 0;
   } catch (const Error& e) {
     std::cerr << e.message() << std::endl;
-    return msg.wParam;
+    return 1;
   }
 }
 

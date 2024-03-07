@@ -311,10 +311,9 @@ LRESULT CALLBACK WindowProc(HWND hWnd,
                             WPARAM wParam,
                             LPARAM lParam);
 
-int WINAPI WinMain(HINSTANCE hInstance,
-                   HINSTANCE hPrevInstance,
-                   LPSTR lpCmdLine,
-                   int nCmdShow) {
+int main(int argc, char** argv) {
+  HINSTANCE hInstance = GetModuleHandle(nullptr);
+  int nCmdShow = SW_SHOWDEFAULT;
   HWND hWnd;
   WNDCLASSEXW wc;
   ZeroMemory(&wc, sizeof(WNDCLASSEX));
@@ -368,5 +367,5 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
       return 0;
   }
 
-  return DefWindowProc(hWnd, message, wParam, lParam);
+  return DefWindowProcW(hWnd, message, wParam, lParam);
 }
