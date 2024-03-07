@@ -493,6 +493,27 @@ class RGBTriangle {
             m_device->DeleteStateBlock(stateBlockToken);
         }
 
+        // CopyRects with depth stencil format test
+        void testCopyRectsDepthStencilFormat() {
+            resetOrRecreateDevice();
+
+            Com<IDirect3DSurface8> sourceSurface;
+            Com<IDirect3DSurface8> destinationSurface;
+
+            m_device->CreateDepthStencilSurface(256, 256, D3DFMT_D16, D3DMULTISAMPLE_NONE, &sourceSurface);
+            m_device->CreateDepthStencilSurface(256, 256, D3DFMT_D16, D3DMULTISAMPLE_NONE, &destinationSurface);
+
+            m_totalTests++;
+            // CopyRects does not handle surfaces with depth stencil formats, so this should fail
+            HRESULT status = m_device->CopyRects(sourceSurface.ptr(), NULL, 0, destinationSurface.ptr(), NULL);
+            if (FAILED(status)) {
+                m_passedTests++;
+                std::cout << "  + The CopyRects with depth stencil test has passed" << std::endl;
+            } else {
+                std::cout << "  - The CopyRects with depth stencil test has failed" << std::endl;
+            }
+        }
+
         // D3D Device capabilities tests
         void testDeviceCapabilities() {
             createDeviceWithFlags(&m_pp, D3DCREATE_SOFTWARE_VERTEXPROCESSING, true);
@@ -861,6 +882,7 @@ int main(int, char**) {
         rgbTriangle.testPureDeviceSetSWVPRenderState();
         rgbTriangle.testDefaultPoolAllocationReset();
         rgbTriangle.testCreateStateBlockAndReset();
+        rgbTriangle.testCopyRectsDepthStencilFormat();
         rgbTriangle.testDeviceCapabilities();
         rgbTriangle.testSurfaceFormats();
         rgbTriangle.testDepthStencilFormats();
