@@ -66,6 +66,14 @@ class RGBTriangle {
                 throw Error("Failed to get D3D8 adapter identifier");
 
             std::cout << format("Using adapter: ", adapterId.Description) << std::endl;
+            std::cout << format("  - Driver: ", adapterId.Driver) << std::endl;
+            // DWORD to hex printout
+            char vendorID[16];
+            char deviceID[16];
+            sprintf(vendorID, "VendorId: %04lx", adapterId.VendorId);
+            sprintf(deviceID, "DeviceId: %04lx", adapterId.DeviceId);
+            std::cout << "  - " << vendorID << std::endl;
+            std::cout << "  - " << deviceID << std::endl;
 
             // D3D Device
             D3DDISPLAYMODE dm;
