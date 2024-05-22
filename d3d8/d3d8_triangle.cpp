@@ -42,6 +42,16 @@ struct RGBVERTEX {
 #define D3DPBLENDCAPS_INVSRCCOLOR2              0x00008000L
 #endif
 
+// these don't seem to be included in any of the
+// headers that should allegedly include them...
+#define D3DDEVINFOID_VCACHE                     4
+
+typedef struct _D3DDEVINFO_VCACHE {
+  DWORD Pattern;
+  DWORD OptMethod;
+  DWORD CacheSize;
+  DWORD MagicNumber;
+} D3DDEVINFO_VCACHE, *LPD3DDEVINFO_VCACHE;
 
 class RGBTriangle {
     
@@ -389,6 +399,22 @@ class RGBTriangle {
                 std::cout << "  + D3DSTENCILCAPS_TWOSIDED is supported" << std::endl;
             else
                 std::cout << "  - D3DSTENCILCAPS_TWOSIDED is not supported" << std::endl;
+        }
+
+        void listVCacheQueryResult() {
+            resetOrRecreateDevice();
+
+            D3DDEVINFO_VCACHE vCache;
+            HRESULT status = m_device->GetInfo(D3DDEVINFOID_VCACHE, &vCache, sizeof(D3DDEVINFO_VCACHE));
+
+            if (SUCCEEDED(status)) {
+                std::cout << std::endl << "Listing VCache query result:" << std::endl;
+                std::cout << "  - vCache Pattern: " << char(vCache.Pattern) << char(vCache.Pattern >> 8)
+                                                    << char(vCache.Pattern >> 16) << char(vCache.Pattern >> 24) << std::endl;
+                std::cout << format("  - vCache OptMethod: ", vCache.OptMethod) << std::endl;
+                std::cout << format("  - vCache CacheSize: ", vCache.CacheSize) << std::endl;
+                std::cout << format("  - vCache MagicNumber: ", vCache.MagicNumber) << std::endl;
+            }
         }
 
         void startTests() {
@@ -852,6 +878,7 @@ int main(int, char**) {
         rgbTriangle.listBackBufferFormats(TRUE);
         rgbTriangle.listDeviceCapabilities();
         rgbTriangle.listDeviceD3D9Capabilities();
+        rgbTriangle.listVCacheQueryResult();
         
         // run D3D Device tests
         rgbTriangle.startTests();
