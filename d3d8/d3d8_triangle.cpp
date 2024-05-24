@@ -76,14 +76,14 @@ class RGBTriangle {
                 throw Error("Failed to get D3D8 adapter identifier");
 
             std::cout << format("Using adapter: ", adapterId.Description) << std::endl;
-            std::cout << format("  - Driver: ", adapterId.Driver) << std::endl;
+            std::cout << format("  ~ Driver: ", adapterId.Driver) << std::endl;
             // DWORD to hex printout
             char vendorID[16];
             char deviceID[16];
             sprintf(vendorID, "VendorId: %04lx", adapterId.VendorId);
             sprintf(deviceID, "DeviceId: %04lx", adapterId.DeviceId);
-            std::cout << "  - " << vendorID << std::endl;
-            std::cout << "  - " << deviceID << std::endl;
+            std::cout << "  ~ " << vendorID << std::endl;
+            std::cout << "  ~ " << deviceID << std::endl;
 
             // D3D Device
             D3DDISPLAYMODE dm;
@@ -125,7 +125,7 @@ class RGBTriangle {
 
             std::cout << std::endl << "Enumerating supported adapter display modes:" << std::endl;
 
-            for(UINT i = 0; i < adapterModeCount; i++) {
+            for (UINT i = 0; i < adapterModeCount; i++) {
                 status =  m_d3d->EnumAdapterModes(D3DADAPTER_DEFAULT, i, &amDM);
                 if (FAILED(status)) {
                     std::cout << format("    Failed to get adapter display mode ", i) << std::endl;
@@ -409,11 +409,20 @@ class RGBTriangle {
 
             if (SUCCEEDED(status)) {
                 std::cout << std::endl << "Listing VCache query result:" << std::endl;
-                std::cout << "  - vCache Pattern: " << char(vCache.Pattern) << char(vCache.Pattern >> 8)
-                                                    << char(vCache.Pattern >> 16) << char(vCache.Pattern >> 24) << std::endl;
-                std::cout << format("  - vCache OptMethod: ", vCache.OptMethod) << std::endl;
-                std::cout << format("  - vCache CacheSize: ", vCache.CacheSize) << std::endl;
-                std::cout << format("  - vCache MagicNumber: ", vCache.MagicNumber) << std::endl;
+
+                char pattern[] = "\0\0\0\0";
+                if (vCache.Pattern == 0) {
+                    pattern[0] = '0';
+                } else {
+                    for (UINT i = 0; i < 4; i++) {
+                        pattern[i] = char(vCache.Pattern >> i * 8);
+                    }
+                }
+
+                std::cout << format("  ~ vCache Pattern: ", pattern) << std::endl;
+                std::cout << format("  ~ vCache OptMethod: ", vCache.OptMethod) << std::endl;
+                std::cout << format("  ~ vCache CacheSize: ", vCache.CacheSize) << std::endl;
+                std::cout << format("  ~ vCache MagicNumber: ", vCache.MagicNumber) << std::endl;
             }
         }
 
