@@ -407,9 +407,33 @@ class RGBTriangle {
             D3DDEVINFO_VCACHE vCache;
             HRESULT status = m_device->GetInfo(D3DDEVINFOID_VCACHE, &vCache, sizeof(D3DDEVINFO_VCACHE));
 
-            if (SUCCEEDED(status)) {
-                std::cout << std::endl << "Listing VCache query result:" << std::endl;
+            std::cout << std::endl << "Listing VCache query result:" << std::endl;
 
+            switch (status) {
+                // NVIDIA will return D3D_OK and some values in vCache
+                case D3D_OK:
+                    std::cout << "  ~ Response: D3D_OK" << std::endl;
+                    break;
+                // ATI/AMD and Intel will return S_FALSE and all 0s in vCache
+                case S_FALSE:
+                    std::cout << "  ~ Response: S_FALSE" << std::endl;
+                    break;
+                case E_FAIL:
+                    std::cout << "  ~ Response: E_FAIL" << std::endl;
+                    break;
+                // shouldn't be returned by any vendor
+                case D3DERR_NOTAVAILABLE:
+                    std::cout << "  ~ Response: D3DERR_NOTAVAILABLE" << std::endl;
+                    break;
+                case D3DERR_INVALIDCALL:
+                    std::cout << "  ~ Response: D3DERR_INVALIDCALL" << std::endl;
+                    break;
+                default:
+                    std::cout << "  ~ Response: UNKNOWN" << std::endl;
+                    break;
+            }
+
+            if (SUCCEEDED(status)) {
                 char pattern[] = "\0\0\0\0";
                 if (vCache.Pattern == 0) {
                     pattern[0] = '0';
@@ -419,10 +443,10 @@ class RGBTriangle {
                     }
                 }
 
-                std::cout << format("  ~ vCache Pattern: ", pattern) << std::endl;
-                std::cout << format("  ~ vCache OptMethod: ", vCache.OptMethod) << std::endl;
-                std::cout << format("  ~ vCache CacheSize: ", vCache.CacheSize) << std::endl;
-                std::cout << format("  ~ vCache MagicNumber: ", vCache.MagicNumber) << std::endl;
+                std::cout << format("  ~ Pattern: ", pattern) << std::endl;
+                std::cout << format("  ~ OptMethod: ", vCache.OptMethod) << std::endl;
+                std::cout << format("  ~ CacheSize: ", vCache.CacheSize) << std::endl;
+                std::cout << format("  ~ MagicNumber: ", vCache.MagicNumber) << std::endl;
             }
         }
 
@@ -570,6 +594,23 @@ class RGBTriangle {
                 std::cout << "  + The CopyRects with depth stencil test has passed" << std::endl;
             } else {
                 std::cout << "  - The CopyRects with depth stencil test has failed" << std::endl;
+            }
+        }
+
+        // VCache query result test
+        void testVCacheQueryResult() {
+            resetOrRecreateDevice();
+
+            D3DDEVINFO_VCACHE vCache;
+
+            m_totalTests++;
+            // shouldn't fail on any vendor (native AMD/Intel return S_FALSE, native Nvidia returns D3D_OK)
+            HRESULT status = m_device->GetInfo(D3DDEVINFOID_VCACHE, &vCache, sizeof(D3DDEVINFO_VCACHE));
+            if (FAILED(status)) {
+                std::cout << "  - The VCache query response test has failed" << std::endl;
+            } else {
+                m_passedTests++;
+                std::cout << "  + The VCache query response test has passed" << std::endl;
             }
         }
 
@@ -897,6 +938,7 @@ int main(int, char**) {
         rgbTriangle.testDefaultPoolAllocationReset();
         rgbTriangle.testCreateStateBlockAndReset();
         rgbTriangle.testCopyRectsDepthStencilFormat();
+        rgbTriangle.testVCacheQueryResult();
         rgbTriangle.testDeviceCapabilities();
         rgbTriangle.testSurfaceFormats();
         rgbTriangle.testDepthStencilFormats();
