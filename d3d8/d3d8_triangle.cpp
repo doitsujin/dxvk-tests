@@ -76,7 +76,7 @@ class RGBTriangle {
                 throw Error("Failed to get D3D8 adapter identifier");
 
             std::cout << format("Using adapter: ", adapterId.Description) << std::endl;
-            std::cout << format("  ~ Driver: ", adapterId.Driver) << std::endl;
+
             // DWORD to hex printout
             char vendorID[16];
             char deviceID[16];
@@ -84,6 +84,25 @@ class RGBTriangle {
             sprintf(deviceID, "DeviceId: %04lx", adapterId.DeviceId);
             std::cout << "  ~ " << vendorID << std::endl;
             std::cout << "  ~ " << deviceID << std::endl;
+
+            std::cout << format("  ~ Driver: ", adapterId.Driver) << std::endl;
+
+            // NVIDIA stores the driver version in the lower half of the lower DWORD
+            if (adapterId.VendorId == uint32_t(0x10de)) {
+                DWORD driverVersion = LOWORD(adapterId.DriverVersion.LowPart);
+                DWORD majorVersion = driverVersion / 100;
+                DWORD minorVersion = driverVersion % 100;
+                std::cout << format("  ~ Version: ", majorVersion, ".", minorVersion) << std::endl;
+            }
+            // for other vendors simply list the entire DriverVersion long int
+            else {
+                DWORD product = HIWORD(adapterId.DriverVersion.HighPart);
+                DWORD version = LOWORD(adapterId.DriverVersion.HighPart);
+                DWORD subVersion = HIWORD(adapterId.DriverVersion.LowPart);
+                DWORD build = LOWORD(adapterId.DriverVersion.LowPart);
+                std::cout << format("  ~ Version: ", product, ".", version, ".",
+                    subVersion, ".", build) << std::endl;
+            }
 
             // D3D Device
             D3DDISPLAYMODE dm;
@@ -504,7 +523,7 @@ class RGBTriangle {
 
         // SWVP Render State test (games like Massive Assault try to enable SWVP in PUREDEVICE mode)
         void testPureDeviceSetSWVPRenderState() {
-            HRESULT status = createDeviceWithFlags(&m_pp, D3DCREATE_PUREDEVICE, false);
+            HRESULT status = createDeviceWithFlags(&m_pp, D3DCREATE_MIXED_VERTEXPROCESSING | D3DCREATE_PUREDEVICE, false);
 
             if (FAILED(status)) {
                 std::cout << "  ~ The PUREDEVICE mode is not supported" << std::endl;
