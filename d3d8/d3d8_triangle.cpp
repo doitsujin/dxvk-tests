@@ -595,6 +595,47 @@ class RGBTriangle {
             m_device->DeleteStateBlock(stateBlockToken);
         }
 
+        // CreateStateBlock monotonic tokens test
+        void testCreateStateBlockMonotonicTokens(UINT stateBlocksCount) {
+            resetOrRecreateDevice();
+
+            std::vector<DWORD> stateBlockTokens;
+            DWORD currentStateBlockToken;
+            for (UINT i = 0; i < stateBlocksCount; i++) {
+                // this shouldn't ever fail...
+                m_device->CreateStateBlock(D3DSBT_ALL, &currentStateBlockToken);
+                //std::cout << format("  * State block token:", currentStateBlockToken) << std::endl;
+                stateBlockTokens.emplace_back(currentStateBlockToken);
+            }
+
+            m_totalTests++;
+
+            bool monotonicStreak = true;
+            // the initial value of the token should be 1, as in the previous test
+            // we've also created a state block (with token 0), and device resets
+            // in D3D8 don't affect state blocks/tokens in any meaningful way
+            DWORD monotonicCounter = 1;
+            for (auto& stateBlockToken : stateBlockTokens) {
+                // subsequent tokens simply increment the initial value
+                if (monotonicCounter == stateBlockToken) {
+                    monotonicCounter += 1;
+                    // release state blocks of checked tokens
+                    m_device->DeleteStateBlock(stateBlockToken);
+                }
+                else {
+                    monotonicStreak = false;
+                    break;
+                }
+            }
+
+            if (monotonicStreak) {
+                m_passedTests++;
+                std::cout << "  + The CreateStateBlock monotonic tokens test has passed" << std::endl;
+            } else {
+                std::cout << "  - The CreateStateBlock monotonic tokens test has failed" << std::endl;
+            }
+        }
+
         // CopyRects with depth stencil format test
         void testCopyRectsDepthStencilFormat() {
             resetOrRecreateDevice();
@@ -956,6 +997,7 @@ int main(int, char**) {
         rgbTriangle.testPureDeviceSetSWVPRenderState();
         rgbTriangle.testDefaultPoolAllocationReset();
         rgbTriangle.testCreateStateBlockAndReset();
+        rgbTriangle.testCreateStateBlockMonotonicTokens(100);
         rgbTriangle.testCopyRectsDepthStencilFormat();
         rgbTriangle.testVCacheQueryResult();
         rgbTriangle.testDeviceCapabilities();
