@@ -521,9 +521,10 @@ class RGBTriangle {
             m_device->EndScene();
         }
 
-        // SWVP Render State test (games like Massive Assault try to enable SWVP in PUREDEVICE mode)
+        // D3DCREATE_PUREDEVICE with SWVP render state test
+        // (games like Massive Assault try to enable SWVP in HWVP/PUREDEVICE mode)
         void testPureDeviceSetSWVPRenderState() {
-            HRESULT status = createDeviceWithFlags(&m_pp, D3DCREATE_MIXED_VERTEXPROCESSING | D3DCREATE_PUREDEVICE, false);
+            HRESULT status = createDeviceWithFlags(&m_pp, D3DCREATE_HARDWARE_VERTEXPROCESSING | D3DCREATE_PUREDEVICE, false);
 
             if (FAILED(status)) {
                 std::cout << "  ~ The PUREDEVICE mode is not supported" << std::endl;
@@ -537,6 +538,24 @@ class RGBTriangle {
                     m_passedTests++;
                     std::cout << "  + The SWVP RS in PUREDEVICE mode test has passed" << std::endl;
                 }
+            }
+        }
+
+        // D3DCREATE_PUREDEVICE only with D3DCREATE_HARDWARE_VERTEXPROCESSING test
+        void testPureDeviceOnlyWithHWVP() {
+            // native drivers will fail to create a device with D3DCREATE_PUREDEVICE unless
+            // it is combined together with D3DCREATE_HARDWARE_VERTEXPROCESSING
+            HRESULT statusHWVP = createDeviceWithFlags(&m_pp, D3DCREATE_HARDWARE_VERTEXPROCESSING | D3DCREATE_PUREDEVICE, false);
+            HRESULT statusSWVP = createDeviceWithFlags(&m_pp, D3DCREATE_SOFTWARE_VERTEXPROCESSING | D3DCREATE_PUREDEVICE, false);
+            HRESULT statusMVP = createDeviceWithFlags(&m_pp, D3DCREATE_MIXED_VERTEXPROCESSING | D3DCREATE_PUREDEVICE, false);
+
+            m_totalTests++;
+
+            if (SUCCEEDED(statusHWVP) && FAILED(statusSWVP) && FAILED(statusMVP)) {
+                m_passedTests++;
+                std::cout << "  + The PUREDEVICE mode only with HWVP test has passed" << std::endl;
+            } else {
+                std::cout << "  - The PUREDEVICE mode only with HWVP test has failed" << std::endl;
             }
         }
 
@@ -911,7 +930,7 @@ class RGBTriangle {
                 throw Error("The D3D8 interface hasn't been initialized");
 
             if (m_device != nullptr)
-                m_device->Release();
+                m_device = nullptr;
 
             HRESULT status = m_d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, m_hWnd,
                                                  behaviorFlags, presentParams, &m_device);
@@ -932,7 +951,7 @@ class RGBTriangle {
                 if(SUCCEEDED(m_device->Reset(&m_pp)))
                     return status;
                 // prepare to clear the device otherwise
-                m_device->Release();
+                m_device = nullptr;
             }
 
             status = m_d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, m_hWnd,
@@ -995,6 +1014,7 @@ int main(int, char**) {
         rgbTriangle.testZeroBackBufferCount();
         rgbTriangle.testBeginSceneReset();
         rgbTriangle.testPureDeviceSetSWVPRenderState();
+        rgbTriangle.testPureDeviceOnlyWithHWVP();
         rgbTriangle.testDefaultPoolAllocationReset();
         rgbTriangle.testCreateStateBlockAndReset();
         rgbTriangle.testCreateStateBlockMonotonicTokens(100);
