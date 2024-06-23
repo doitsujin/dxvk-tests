@@ -57,8 +57,8 @@ class RGBTriangle {
     
     public:
 
-        static const UINT WINDOW_WIDTH  = 800;
-        static const UINT WINDOW_HEIGHT = 800;
+        static const UINT WINDOW_WIDTH  = 700;
+        static const UINT WINDOW_HEIGHT = 700;
 
         RGBTriangle(HWND hWnd) : m_hWnd(hWnd) {
             decltype(Direct3DCreate8)* Direct3DCreate8 = nullptr;
@@ -873,11 +873,11 @@ class RGBTriangle {
             // Vertex Buffer
             void* vertices = nullptr;
             
-            // tailored for 800 x 800 and the appearance of being centered
+            // tailored for 1024x768 and the appearance of being centered
             std::array<RGBVERTEX, 3> rgbVertices = {{
-                {100.0f, 675.0f, 0.5f, 1.0f, D3DCOLOR_XRGB(255, 0, 0),},
-                {400.0f, 75.0f, 0.5f, 1.0f, D3DCOLOR_XRGB(0, 255, 0),},
-                {700.0f, 675.0f, 0.5f, 1.0f, D3DCOLOR_XRGB(0, 0, 255),},
+                { 60.0f, 625.0f, 0.5f, 1.0f, D3DCOLOR_XRGB(255, 0, 0),},
+                {350.0f,  45.0f, 0.5f, 1.0f, D3DCOLOR_XRGB(0, 255, 0),},
+                {640.0f, 625.0f, 0.5f, 1.0f, D3DCOLOR_XRGB(0, 0, 255),},
             }};
             const size_t rgbVerticesSize = rgbVertices.size() * sizeof(RGBVERTEX);
 
